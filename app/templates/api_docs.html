@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}REST API Documentation{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">API Documentation</li>
+                </ol>
+            </nav>
+            <h1 class="h2 fw-bold text-dark mb-1">Developer API Documentation</h1>
+            <p class="text-muted">RESTful HTTP API endpoints for programmatic machine learning inference, telemetry retrieval, and system monitoring.</p>
+        </div>
+    </div>
+
+    <!-- Endpoint 1: Healthcheck -->
+    <div class="agri-card p-4 mb-4" id="endpoint-health">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-success px-3 py-2 fw-bold">GET</span>
+            <code class="fs-5 text-dark">/api/v1/health</code>
+        </div>
+        <p class="text-muted small mb-3">Checks server liveness, database connectivity, and lists all initialized ML models.</p>
+
+        <h6 class="fw-bold small text-uppercase text-muted">Example Request (cURL):</h6>
+        <div class="curl-box mb-3">curl -X GET http://127.0.0.1:5000/api/v1/health</div>
+
+        <h6 class="fw-bold small text-uppercase text-muted">Sample Response (200 OK):</h6>
+        <div class="json-response">
+<pre class="mb-0 text-info">{
+  "status": "healthy",
+  "database": "connected",
+  "models_loaded": ["yield", "disease", "fertilizer"],
+  "timestamp": "2026-09-05T05:35:10.123456"
+}</pre>
+        </div>
+    </div>
+
+    <!-- Endpoint 2: Predict Yield -->
+    <div class="agri-card p-4 mb-4" id="endpoint-predict-yield">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-primary px-3 py-2 fw-bold">POST</span>
+            <code class="fs-5 text-dark">/api/v1/predict/yield</code>
+        </div>
+        <p class="text-muted small mb-3">Submits agronomic, soil, and climate parameters to predict expected crop yield in kg/hectare alongside an estimator variance confidence interval.</p>
+
+        <h6 class="fw-bold small text-uppercase text-muted">Example Request (cURL):</h6>
+        <div class="curl-box mb-3">curl -X POST http://127.0.0.1:5000/api/v1/predict/yield \
+  -H "Content-Type: application/json" \
+  -d '{
+    "crop_type": "wheat",
+    "soil_ph": 6.5,
+    "rainfall_mm": 650.0,
+    "temperature_c": 21.5,
+    "humidity_pct": 60.0,
+    "nitrogen": 120.0,
+    "phosphorus": 45.0,
+    "potassium": 40.0
+  }'</div>
+
+        <h6 class="fw-bold small text-uppercase text-muted">Sample Response (200 OK):</h6>
+        <div class="json-response">
+<pre class="mb-0 text-info">{
+  "status": "success",
+  "prediction_type": "yield",
+  "crop_type": "wheat",
+  "predicted_yield_kg_per_hectare": 4215.35,
+  "confidence_pct": 92.4,
+  "confidence_interval": [3840.10, 4590.60],
+  "std_deviation": 191.45,
+  "unit": "kg/ha",
+  "log_id": 14
+}</pre>
+        </div>
+    </div>
+
+    <!-- Endpoint 3: Predict Disease Risk -->
+    <div class="agri-card p-4 mb-4" id="endpoint-predict-disease">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-primary px-3 py-2 fw-bold">POST</span>
+            <code class="fs-5 text-dark">/api/v1/predict/disease</code>
+        </div>
+        <p class="text-muted small mb-3">Diagnoses foliar pathogen vulnerability levels (low, medium, high) based on microclimate variables, sustained leaf wetness hours, and past field infection history.</p>
+
+        <h6 class="fw-bold small text-uppercase text-muted">Example Request (cURL):</h6>
+        <div class="curl-box mb-3">curl -X POST http://127.0.0.1:5000/api/v1/predict/disease \
+  -H "Content-Type: application/json" \
+  -d '{
+    "crop_type": "rice",
+    "temperature_c": 28.5,
+    "humidity_pct": 89.0,
+    "rainfall_mm": 210.0,
+    "leaf_wetness_hours": 12.0,
+    "prior_disease_history": 1
+  }'</div>
+
+        <h6 class="fw-bold small text-uppercase text-muted">Sample Response (200 OK):</h6>
+        <div class="json-response">
+<pre class="mb-0 text-info">{
+  "status": "success",
+  "prediction_type": "disease",
+  "crop_type": "rice",
+  "risk_level": "high",
+  "confidence_pct": 87.5,
+  "class_probabilities": {
+    "low": 2.5,
+    "medium": 10.0,
+    "high": 87.5
+  },
+  "advisory": "CRITICAL ALERT: Environmental conditions strongly favor outbreak. Immediate fungicide application recommended.",
+  "log_id": 15
+}</pre>
+        </div>
+    </div>
+
+    <!-- Endpoint 4: Predict Fertilizer -->
+    <div class="agri-card p-4 mb-4" id="endpoint-predict-fertilizer">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-primary px-3 py-2 fw-bold">POST</span>
+            <code class="fs-5 text-dark">/api/v1/predict/fertilizer</code>
+        </div>
+        <p class="text-muted small mb-3">Recommends an optimal fertilizer treatment formulation (Urea, DAP, MOP, NPK blend, or Compost) tailored to soil test values and crop type.</p>
+
+        <h6 class="fw-bold small text-uppercase text-muted">Example Request (cURL):</h6>
+        <div class="curl-box mb-3">curl -X POST http://127.0.0.1:5000/api/v1/predict/fertilizer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "crop_type": "maize",
+    "soil_ph": 6.5,
+    "nitrogen": 25.0,
+    "phosphorus": 45.0,
+    "potassium": 50.0,
+    "moisture_pct": 55.0
+  }'</div>
+
+        <h6 class="fw-bold small text-uppercase text-muted">Sample Response (200 OK):</h6>
+        <div class="json-response">
+<pre class="mb-0 text-info">{
+  "status": "success",
+  "prediction_type": "fertilizer",
+  "crop_type": "maize",
+  "recommended_fertilizer": "Urea",
+  "confidence_pct": 94.2,
+  "class_probabilities": {
+    "Compost": 1.2,
+    "DAP": 0.5,
+    "MOP": 0.8,
+    "NPK": 3.3,
+    "Urea": 94.2
+  },
+  "fertilizer_info": "High Nitrogen (46-0-0) source for vegetative growth and chlorophyll synthesis.",
+  "log_id": 16
+}</pre>
+        </div>
+    </div>
+
+    <!-- Endpoint 5: Prediction History -->
+    <div class="agri-card p-4 mb-4" id="endpoint-history">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-success px-3 py-2 fw-bold">GET</span>
+            <code class="fs-5 text-dark">/api/v1/history?limit=20</code>
+        </div>
+        <p class="text-muted small mb-3">Retrieves chronological list of logged inference transactions and input snapshots stored in the SQLite database.</p>
+
+        <h6 class="fw-bold small text-uppercase text-muted">Example Request (cURL):</h6>
+        <div class="curl-box mb-3">curl -X GET "http://127.0.0.1:5000/api/v1/history?limit=5"</div>
+
+        <h6 class="fw-bold small text-uppercase text-muted">Sample Response (200 OK):</h6>
+        <div class="json-response">
+<pre class="mb-0 text-info">{
+  "status": "success",
+  "count": 2,
+  "history": [
+    {
+      "id": 16,
+      "prediction_type": "fertilizer",
+      "timestamp": "2026-09-05 05:40:12",
+      "result": "Urea",
+      "confidence": 94.2,
+      "inputs": { "crop_type": "maize", "nitrogen": 25.0, "phosphorus": 45.0, "potassium": 50.0 }
+    },
+    {
+      "id": 15,
+      "prediction_type": "disease",
+      "timestamp": "2026-09-05 05:39:45",
+      "result": "High",
+      "confidence": 87.5,
+      "inputs": { "crop_type": "rice", "temperature_c": 28.5, "humidity_pct": 89.0 }
+    }
+  ]
+}</pre>
+        </div>
+    </div>
+</div>
+{% endblock %}

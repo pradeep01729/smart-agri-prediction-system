@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Crop Yield Prediction{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Crop Yield Prediction</li>
+                </ol>
+            </nav>
+            <h1 class="h2 fw-bold text-dark mb-1">Crop Yield Estimation Model</h1>
+            <p class="text-muted">Predict expected harvest yield (kg/hectare) using Random Forest Regression on soil chemistry, macronutrients, and microclimate parameters.</p>
+        </div>
+    </div>
+
+    <!-- Error Alert placeholder for AJAX errors -->
+    <div class="alert alert-danger d-none shadow-sm" id="yield-error-alert" role="alert"></div>
+
+    <div class="row g-4">
+        <!-- Input Form Column -->
+        <div class="col-lg-7">
+            <div class="agri-card p-4">
+                <!-- Preset Quick Buttons -->
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <span class="small fw-bold text-muted text-uppercase">Sample Presets:</span>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-agri-secondary" data-preset-yield="wheat" id="preset-wheat-btn">Wheat Demo</button>
+                        <button type="button" class="btn btn-agri-secondary" data-preset-yield="rice" id="preset-rice-btn">Rice Demo</button>
+                        <button type="button" class="btn btn-agri-secondary" data-preset-yield="sugarcane" id="preset-sugarcane-btn">Sugarcane Demo</button>
+                    </div>
+                </div>
+
+                <form id="yieldPredictionForm" method="POST" action="{{ url_for('predict.predict_yield_view') }}">
+                    <div class="row g-3">
+                        <!-- Crop Type -->
+                        <div class="col-md-6">
+                            <label for="crop_type" class="form-label">Crop Cultivar <span class="text-danger">*</span></label>
+                            <select class="form-select" id="crop_type" name="crop_type" required>
+                                <option value="" disabled {% if not form_data or not form_data.crop_type %}selected{% endif %}>Select target crop...</option>
+                                <option value="wheat" {% if form_data and form_data.crop_type == 'wheat' %}selected{% endif %}>Wheat (Triticum aestivum)</option>
+                                <option value="rice" {% if form_data and form_data.crop_type == 'rice' %}selected{% endif %}>Rice / Paddy (Oryza sativa)</option>
+                                <option value="maize" {% if form_data and form_data.crop_type == 'maize' %}selected{% endif %}>Maize / Corn (Zea mays)</option>
+                                <option value="cotton" {% if form_data and form_data.crop_type == 'cotton' %}selected{% endif %}>Cotton (Gossypium)</option>
+                                <option value="sugarcane" {% if form_data and form_data.crop_type == 'sugarcane' %}selected{% endif %}>Sugarcane (Saccharum)</option>
+                            </select>
+                        </div>
+
+                        <!-- Soil pH -->
+                        <div class="col-md-6">
+                            <label for="soil_ph" class="form-label">Soil pH Level (3.5 - 9.5) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="3.5" max="9.5" class="form-control" id="soil_ph" name="soil_ph" value="{{ form_data.soil_ph if form_data else '6.5' }}" placeholder="e.g. 6.5" required>
+                        </div>
+
+                        <!-- Rainfall -->
+                        <div class="col-md-6">
+                            <label for="rainfall_mm" class="form-label">Seasonal Rainfall (mm) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="100" max="3000" class="form-control" id="rainfall_mm" name="rainfall_mm" value="{{ form_data.rainfall_mm if form_data else '650' }}" placeholder="e.g. 650" required>
+                        </div>
+
+                        <!-- Temperature -->
+                        <div class="col-md-6">
+                            <label for="temperature_c" class="form-label">Mean Temperature (°C) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="5" max="50" class="form-control" id="temperature_c" name="temperature_c" value="{{ form_data.temperature_c if form_data else '22.5' }}" placeholder="e.g. 22.5" required>
+                        </div>
+
+                        <!-- Humidity -->
+                        <div class="col-md-6">
+                            <label for="humidity_pct" class="form-label">Relative Humidity (%) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="10" max="100" class="form-control" id="humidity_pct" name="humidity_pct" value="{{ form_data.humidity_pct if form_data else '65' }}" placeholder="e.g. 65" required>
+                        </div>
+
+                        <!-- Nitrogen -->
+                        <div class="col-md-6">
+                            <label for="nitrogen" class="form-label">Nitrogen [N] (kg/ha equivalent) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="10" max="300" class="form-control" id="nitrogen" name="nitrogen" value="{{ form_data.nitrogen if form_data else '120' }}" placeholder="e.g. 120" required>
+                        </div>
+
+                        <!-- Phosphorus -->
+                        <div class="col-md-6">
+                            <label for="phosphorus" class="form-label">Phosphorus [P] (kg/ha equivalent) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="5" max="200" class="form-control" id="phosphorus" name="phosphorus" value="{{ form_data.phosphorus if form_data else '45' }}" placeholder="e.g. 45" required>
+                        </div>
+
+                        <!-- Potassium -->
+                        <div class="col-md-6">
+                            <label for="potassium" class="form-label">Potassium [K] (kg/ha equivalent) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="5" max="200" class="form-control" id="potassium" name="potassium" value="{{ form_data.potassium if form_data else '50' }}" placeholder="e.g. 50" required>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-2">
+                        <button type="submit" class="btn btn-agri-primary w-100 py-2 fs-6" id="yield-submit-btn">
+                            <i class="bi bi-calculator-fill me-2"></i> Compute Yield Prediction
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Result Column -->
+        <div class="col-lg-5">
+            <!-- Dynamic Result Card -->
+            <div id="yield-result-container" class="agri-card p-4 {% if not result %}d-none{% endif %}">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fw-bold" id="yield-crop-name">
+                        {{ result.crop_type|upper if result else 'CROP' }}
+                    </span>
+                    <span class="text-muted small"><i class="bi bi-check2-circle text-success"></i> Model Converged</span>
+                </div>
+
+                <div class="text-center py-3">
+                    <span class="text-muted small text-uppercase fw-semibold d-block">Estimated Crop Yield</span>
+                    <h3 class="display-6 fw-extrabold text-success my-2" id="yield-result-val">
+                        {{ result.predicted_yield ~ ' kg/ha' if result else '--' }}
+                    </h3>
+                    <p class="small text-muted" id="yield-interval-val">
+                        {% if result and result.confidence_interval %}
+                        95% Confidence Interval: {{ result.confidence_interval[0] }} — {{ result.confidence_interval[1] }} kg/ha
+                        {% else %}
+                        Estimator variance evaluated across 100 decision trees
+                        {% endif %}
+                    </p>
+                </div>
+
+                <!-- Confidence Gauge -->
+                <div class="bg-light p-3 rounded-3 mb-3 border">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="small fw-bold">Prediction Confidence</span>
+                        <span class="small fw-bold text-primary" id="yield-conf-val">{{ result.confidence_pct if result else '92.4' }}%</span>
+                    </div>
+                    <div class="confidence-bar-wrapper">
+                        <div class="confidence-bar-fill" id="yield-conf-bar" style="width: {{ result.confidence_pct if result else '92.4' }}%;"></div>
+                    </div>
+                    <span class="text-muted small d-block mt-2" style="font-size: 0.78rem;">
+                        Computed via inter-estimator standard deviation across ensemble regression trees.
+                    </span>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('predict.predict_fertilizer_view') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-arrow-right-circle me-1"></i> Proceed to Fertilizer Optimizer
+                    </a>
+                </div>
+            </div>
+
+            <!-- Model Info Card -->
+            <div class="agri-card p-4 mt-3">
+                <h3 class="h6 fw-bold mb-2"><i class="bi bi-info-circle text-primary me-2"></i>About Yield Regressor</h3>
+                <p class="small text-muted mb-2">
+                    Trained with a 100-estimator <code>RandomForestRegressor</code> wrapped in a <code>ColumnTransformer</code> pipeline that standardizes soil metrics and one-hot encodes crop cultivars.
+                </p>
+                <div class="small bg-light p-2 rounded border">
+                    <div><strong>Algorithm:</strong> Random Forest Regressor</div>
+                    <div><strong>Validation R²:</strong> 0.978+</div>
+                    <div><strong>Target:</strong> Yield in kg/hectare</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/predict.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Fertilizer Recommendation Optimizer{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Fertilizer Recommendation</li>
+                </ol>
+            </nav>
+            <h1 class="h2 fw-bold text-dark mb-1">Intelligent Fertilizer Recommendation Engine</h1>
+            <p class="text-muted">Prescribe optimal soil nutrient amendments (Urea, DAP, MOP, NPK blend, or Organic Compost) based on soil test indices, pH balance, and crop nutritional demand.</p>
+        </div>
+    </div>
+
+    <div class="alert alert-danger d-none shadow-sm" id="fertilizer-error-alert" role="alert"></div>
+
+    <div class="row g-4">
+        <!-- Form Column -->
+        <div class="col-lg-7">
+            <div class="agri-card p-4">
+                <!-- Preset Quick Buttons -->
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <span class="small fw-bold text-muted text-uppercase">Soil Deficiency Presets:</span>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-agri-secondary" data-preset-fertilizer="low_nitrogen" id="preset-fert-n">Low N (Urea)</button>
+                        <button type="button" class="btn btn-agri-secondary" data-preset-fertilizer="low_phosphorus" id="preset-fert-p">Low P (DAP)</button>
+                        <button type="button" class="btn btn-agri-secondary" data-preset-fertilizer="acidic_soil" id="preset-fert-acid">Acidic pH (Compost)</button>
+                    </div>
+                </div>
+
+                <form id="fertilizerPredictionForm" method="POST" action="{{ url_for('predict.predict_fertilizer_view') }}">
+                    <div class="row g-3">
+                        <!-- Crop Type -->
+                        <div class="col-md-6">
+                            <label for="crop_type" class="form-label">Target Crop <span class="text-danger">*</span></label>
+                            <select class="form-select" id="crop_type" name="crop_type" required>
+                                <option value="" disabled {% if not form_data or not form_data.crop_type %}selected{% endif %}>Select target crop...</option>
+                                <option value="wheat" {% if form_data and form_data.crop_type == 'wheat' %}selected{% endif %}>Wheat</option>
+                                <option value="rice" {% if form_data and form_data.crop_type == 'rice' %}selected{% endif %}>Rice / Paddy</option>
+                                <option value="maize" {% if form_data and form_data.crop_type == 'maize' %}selected{% endif %}>Maize / Corn</option>
+                                <option value="cotton" {% if form_data and form_data.crop_type == 'cotton' %}selected{% endif %}>Cotton</option>
+                                <option value="sugarcane" {% if form_data and form_data.crop_type == 'sugarcane' %}selected{% endif %}>Sugarcane</option>
+                            </select>
+                        </div>
+
+                        <!-- Soil pH -->
+                        <div class="col-md-6">
+                            <label for="soil_ph" class="form-label">Soil pH Index <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="3.5" max="10.0" class="form-control" id="soil_ph" name="soil_ph" value="{{ form_data.soil_ph if form_data else '6.6' }}" placeholder="e.g. 6.6" required>
+                        </div>
+
+                        <!-- Nitrogen -->
+                        <div class="col-md-6">
+                            <label for="nitrogen" class="form-label">Soil Nitrogen (kg/ha) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="5" max="300" class="form-control" id="nitrogen" name="nitrogen" value="{{ form_data.nitrogen if form_data else '30.0' }}" placeholder="e.g. 30.0" required>
+                        </div>
+
+                        <!-- Phosphorus -->
+                        <div class="col-md-6">
+                            <label for="phosphorus" class="form-label">Soil Phosphorus (kg/ha) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="5" max="250" class="form-control" id="phosphorus" name="phosphorus" value="{{ form_data.phosphorus if form_data else '45.0' }}" placeholder="e.g. 45.0" required>
+                        </div>
+
+                        <!-- Potassium -->
+                        <div class="col-md-6">
+                            <label for="potassium" class="form-label">Soil Potassium (kg/ha) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="5" max="250" class="form-control" id="potassium" name="potassium" value="{{ form_data.potassium if form_data else '50.0' }}" placeholder="e.g. 50.0" required>
+                        </div>
+
+                        <!-- Moisture -->
+                        <div class="col-md-6">
+                            <label for="moisture_pct" class="form-label">Volumetric Soil Moisture (%) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="5" max="100" class="form-control" id="moisture_pct" name="moisture_pct" value="{{ form_data.moisture_pct if form_data else '50.0' }}" placeholder="e.g. 50.0" required>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-2">
+                        <button type="submit" class="btn btn-agri-primary w-100 py-2 fs-6" id="fertilizer-submit-btn">
+                            <i class="bi bi-patch-check-fill me-2"></i> Compute Fertilizer Recommendation
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Result Column -->
+        <div class="col-lg-5">
+            <div id="fertilizer-result-container" class="agri-card p-4 {% if not result %}d-none{% endif %}">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted small text-uppercase fw-semibold">Prescribed Soil Amendment</span>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle">Optimized</span>
+                </div>
+
+                <div class="text-center py-2 mb-3">
+                    <span id="fertilizer-badge" class="result-badge badge-fertilizer d-inline-block fw-bold">
+                        {{ 'Recommended: ' ~ result.recommended_fertilizer if result else 'PRESCRIPTION PENDING' }}
+                    </span>
+                    <div class="small fw-bold text-muted mt-3">
+                        Confidence: <span class="text-dark" id="fertilizer-conf-val">{{ result.confidence_pct if result else '--' }}%</span>
+                    </div>
+                    <div class="confidence-bar-wrapper mt-1 mx-auto" style="max-width: 200px;">
+                        <div class="confidence-bar-fill" id="fertilizer-conf-bar" style="width: {{ result.confidence_pct if result else '0' }}%;"></div>
+                    </div>
+                </div>
+
+                <!-- Fertilizer Information -->
+                <div class="alert alert-light border p-3 mb-3">
+                    <h4 class="h6 fw-bold mb-1"><i class="bi bi-info-circle text-primary me-1"></i> Agronomic Rationale</h4>
+                    <p class="small text-muted mb-0" id="fertilizer-info">
+                        {{ result.fertilizer_info if result else 'Specific chemical formulation guidelines will be detailed upon submission.' }}
+                    </p>
+                </div>
+
+                <!-- Probability breakdown -->
+                <div class="border rounded-3 p-3 bg-light">
+                    <span class="small fw-bold text-uppercase text-muted d-block mb-2">Class Confidence Distribution:</span>
+                    <div id="fertilizer-probs-container">
+                        {% if result and result.class_probabilities %}
+                            {% for cls, pct in result.class_probabilities.items() %}
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span class="fw-semibold">{{ cls }}</span>
+                                    <span>{{ pct }}%</span>
+                                </div>
+                                <div class="confidence-bar-wrapper" style="height: 6px;">
+                                    <div class="confidence-bar-fill" style="width: {{ pct }}%;"></div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Info -->
+            <div class="agri-card p-4 mt-3">
+                <h3 class="h6 fw-bold mb-2"><i class="bi bi-info-circle text-primary me-2"></i>Fertilizer Decision Architecture</h3>
+                <p class="small text-muted mb-2">
+                    Multi-class Random Forest classifier mapped against soil chemical parameters (NPK test indices and pH buffering requirements).
+                </p>
+                <div class="small bg-light p-2 rounded border">
+                    <div><strong>Amendment Options:</strong> Urea, DAP, MOP, NPK blend, Compost</div>
+                    <div><strong>Accuracy:</strong> 95.3% on test validation set</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/predict.js') }}"></script>
+{% endblock %}

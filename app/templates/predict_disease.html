@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Disease Risk Diagnosis{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Disease Risk Diagnosis</li>
+                </ol>
+            </nav>
+            <h1 class="h2 fw-bold text-dark mb-1">Crop Disease &amp; Pathogen Risk Diagnosis</h1>
+            <p class="text-muted">Evaluate foliar pathogen proliferation probability (Low, Medium, High) using Random Forest classification on microclimatic variables and leaf wetness telemetry.</p>
+        </div>
+    </div>
+
+    <div class="alert alert-danger d-none shadow-sm" id="disease-error-alert" role="alert"></div>
+
+    <div class="row g-4">
+        <!-- Form Column -->
+        <div class="col-lg-7">
+            <div class="agri-card p-4">
+                <!-- Preset Quick Buttons -->
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                    <span class="small fw-bold text-muted text-uppercase">Sample Presets:</span>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-agri-secondary" data-preset-disease="high_risk" id="preset-disease-high">High Risk Demo</button>
+                        <button type="button" class="btn btn-agri-secondary" data-preset-disease="medium_risk" id="preset-disease-medium">Medium Risk</button>
+                        <button type="button" class="btn btn-agri-secondary" data-preset-disease="low_risk" id="preset-disease-low">Low Risk</button>
+                    </div>
+                </div>
+
+                <form id="diseasePredictionForm" method="POST" action="{{ url_for('predict.predict_disease_view') }}">
+                    <div class="row g-3">
+                        <!-- Crop Type -->
+                        <div class="col-md-6">
+                            <label for="crop_type" class="form-label">Crop Cultivar <span class="text-danger">*</span></label>
+                            <select class="form-select" id="crop_type" name="crop_type" required>
+                                <option value="" disabled {% if not form_data or not form_data.crop_type %}selected{% endif %}>Select target crop...</option>
+                                <option value="wheat" {% if form_data and form_data.crop_type == 'wheat' %}selected{% endif %}>Wheat (Triticum aestivum)</option>
+                                <option value="rice" {% if form_data and form_data.crop_type == 'rice' %}selected{% endif %}>Rice / Paddy (Oryza sativa)</option>
+                                <option value="maize" {% if form_data and form_data.crop_type == 'maize' %}selected{% endif %}>Maize / Corn (Zea mays)</option>
+                                <option value="cotton" {% if form_data and form_data.crop_type == 'cotton' %}selected{% endif %}>Cotton (Gossypium)</option>
+                                <option value="sugarcane" {% if form_data and form_data.crop_type == 'sugarcane' %}selected{% endif %}>Sugarcane (Saccharum)</option>
+                            </select>
+                        </div>
+
+                        <!-- Temperature -->
+                        <div class="col-md-6">
+                            <label for="temperature_c" class="form-label">Ambient Temperature (°C) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="5" max="50" class="form-control" id="temperature_c" name="temperature_c" value="{{ form_data.temperature_c if form_data else '28.0' }}" placeholder="e.g. 28.0" required>
+                        </div>
+
+                        <!-- Humidity -->
+                        <div class="col-md-6">
+                            <label for="humidity_pct" class="form-label">Relative Humidity (%) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="10" max="100" class="form-control" id="humidity_pct" name="humidity_pct" value="{{ form_data.humidity_pct if form_data else '85.0' }}" placeholder="e.g. 85.0" required>
+                        </div>
+
+                        <!-- Rainfall -->
+                        <div class="col-md-6">
+                            <label for="rainfall_mm" class="form-label">Recent Rainfall (mm) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="0" max="1500" class="form-control" id="rainfall_mm" name="rainfall_mm" value="{{ form_data.rainfall_mm if form_data else '180.0' }}" placeholder="e.g. 180.0" required>
+                        </div>
+
+                        <!-- Leaf Wetness Hours -->
+                        <div class="col-md-6">
+                            <label for="leaf_wetness_hours" class="form-label">Leaf Wetness Duration (hrs/day) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.1" min="0" max="24" class="form-control" id="leaf_wetness_hours" name="leaf_wetness_hours" value="{{ form_data.leaf_wetness_hours if form_data else '10.5' }}" placeholder="e.g. 10.5" required>
+                            <span class="text-muted" style="font-size: 0.78rem;">Sensors detecting dew/film retention on canopy</span>
+                        </div>
+
+                        <!-- Prior Disease History -->
+                        <div class="col-md-6">
+                            <label for="prior_disease_history" class="form-label">Prior Field Infection History <span class="text-danger">*</span></label>
+                            <select class="form-select" id="prior_disease_history" name="prior_disease_history" required>
+                                <option value="1" {% if form_data and form_data.prior_disease_history == '1' %}selected{% endif %}>Yes - Pathogen history in previous season</option>
+                                <option value="0" {% if form_data and form_data.prior_disease_history == '0' %}selected{% endif %}>No - Clean field record</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-2">
+                        <button type="submit" class="btn btn-agri-primary w-100 py-2 fs-6" id="disease-submit-btn">
+                            <i class="bi bi-shield-shaded me-2"></i> Evaluate Disease Vulnerability
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Result Column -->
+        <div class="col-lg-5">
+            <div id="disease-result-container" class="agri-card p-4 {% if not result %}d-none{% endif %}">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted small text-uppercase fw-semibold">Pathogen Vulnerability</span>
+                    <span class="text-muted small"><i class="bi bi-cpu text-primary"></i> RF Classifier</span>
+                </div>
+
+                <div class="text-center py-2 mb-3">
+                    <div class="mb-2">
+                        {% set risk_class = result.risk_level|lower if result else 'low' %}
+                        <span id="disease-badge" class="result-badge badge-{{ risk_class }}">
+                            {{ (result.risk_level|upper ~ ' RISK') if result else 'DIAGNOSIS PENDING' }}
+                        </span>
+                    </div>
+                    <div class="small fw-bold text-muted mt-2">
+                        Inference Confidence: <span class="text-dark" id="disease-conf-val">{{ result.confidence_pct if result else '--' }}%</span>
+                    </div>
+                    <div class="confidence-bar-wrapper mt-1 mx-auto" style="max-width: 200px;">
+                        <div class="confidence-bar-fill" id="disease-conf-bar" style="width: {{ result.confidence_pct if result else '0' }}%;"></div>
+                    </div>
+                </div>
+
+                <!-- Agronomic Advisory Box -->
+                <div class="alert alert-light border p-3 mb-3">
+                    <h4 class="h6 fw-bold mb-1"><i class="bi bi-lightbulb text-warning me-1"></i> Agronomic Action Advisory</h4>
+                    <p class="small text-muted mb-0" id="disease-advisory">
+                        {{ result.advisory if result else 'Advisory recommendations will display here once conditions are evaluated.' }}
+                    </p>
+                </div>
+
+                <!-- Class Probability Breakdown -->
+                <div class="border rounded-3 p-3 bg-light">
+                    <span class="small fw-bold text-uppercase text-muted d-block mb-2">Class Probability Distribution:</span>
+                    <div id="disease-probs-container">
+                        {% if result and result.class_probabilities %}
+                            {% for cls, pct in result.class_probabilities.items() %}
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span class="text-capitalize fw-semibold">{{ cls }} Risk</span>
+                                    <span>{{ pct }}%</span>
+                                </div>
+                                <div class="confidence-bar-wrapper" style="height: 6px;">
+                                    <div class="confidence-bar-fill" style="width: {{ pct }}%;"></div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Info -->
+            <div class="agri-card p-4 mt-3">
+                <h3 class="h6 fw-bold mb-2"><i class="bi bi-info-circle text-primary me-2"></i>Epidemiological Model Rationale</h3>
+                <p class="small text-muted mb-2">
+                    Foliar fungal pathogens (e.g., blast, rust, blight) require critical thresholds of sustained moisture (>80% RH) and free water on the leaf surface (>6-8 hours) in warm ambient temperatures (22-30°C) to germinate spores.
+                </p>
+                <div class="small bg-light p-2 rounded border">
+                    <div><strong>Model Architecture:</strong> Random Forest Classifier</div>
+                    <div><strong>Target Output:</strong> Low, Medium, High Vulnerability</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/predict.js') }}"></script>
+{% endblock %}

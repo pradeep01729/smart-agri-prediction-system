@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Operational Dashboard{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Hero Banner -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 pb-2 border-bottom">
+        <div>
+            <h1 class="h2 fw-bold text-dark mb-1">Agricultural Intelligence Dashboard</h1>
+            <p class="text-muted mb-0">Real-time crop yield analytics, pathogen alert telemetry, and agronomic recommendations.</p>
+        </div>
+        <div class="mt-3 mt-md-0 d-flex gap-2">
+            <a href="{{ url_for('predict.predict_yield_view') }}" class="btn btn-agri-primary btn-sm" id="dashboard-cta-yield">
+                <i class="bi bi-plus-circle me-1"></i> Predict Yield
+            </a>
+            <a href="{{ url_for('predict.predict_disease_view') }}" class="btn btn-outline-danger btn-sm" id="dashboard-cta-disease">
+                <i class="bi bi-shield-plus me-1"></i> Check Disease
+            </a>
+            <a href="{{ url_for('predict.predict_fertilizer_view') }}" class="btn btn-outline-primary btn-sm" id="dashboard-cta-fertilizer">
+                <i class="bi bi-droplet-half me-1"></i> Recommend Fertilizer
+            </a>
+        </div>
+    </div>
+
+    <!-- 4 Summary Stat Cards -->
+    <div class="row g-3 mb-4">
+        <!-- Card 1: Total Predictions -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="stat-card d-flex align-items-center justify-content-between" id="card-total-predictions">
+                <div>
+                    <div class="stat-label mb-1">Total Predictions</div>
+                    <div class="stat-value" id="stat-total-predictions">{{ total_predictions }}</div>
+                    <div class="small text-muted mt-1"><i class="bi bi-database-check text-success"></i> Model inferences</div>
+                </div>
+                <div class="stat-icon stat-icon-green">
+                    <i class="bi bi-cpu"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Most Common Crop -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="stat-card d-flex align-items-center justify-content-between" id="card-common-crop">
+                <div>
+                    <div class="stat-label mb-1">Top Cultivar</div>
+                    <div class="stat-value text-capitalize" id="stat-common-crop">{{ most_common_crop }}</div>
+                    <div class="small text-muted mt-1"><i class="bi bi-flower2 text-primary"></i> Most queried crop</div>
+                </div>
+                <div class="stat-icon stat-icon-blue">
+                    <i class="bi bi-tree"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Avg Predicted Yield -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="stat-card d-flex align-items-center justify-content-between" id="card-avg-yield">
+                <div>
+                    <div class="stat-label mb-1">Avg Predicted Yield</div>
+                    <div class="stat-value fs-3" id="stat-avg-yield">{{ avg_predicted_yield }}</div>
+                    <div class="small text-muted mt-1"><i class="bi bi-bar-chart-line text-warning"></i> Mean production index</div>
+                </div>
+                <div class="stat-icon stat-icon-amber">
+                    <i class="bi bi-speedometer2"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: High-Risk Disease Alerts -->
+        <div class="col-sm-6 col-lg-3">
+            <div class="stat-card d-flex align-items-center justify-content-between" id="card-disease-alerts">
+                <div>
+                    <div class="stat-label mb-1">Critical Alerts</div>
+                    <div class="stat-value text-danger" id="stat-disease-alerts">{{ high_risk_disease_count }}</div>
+                    <div class="small text-muted mt-1"><i class="bi bi-exclamation-triangle text-danger"></i> High-risk incidents</div>
+                </div>
+                <div class="stat-icon stat-icon-red">
+                    <i class="bi bi-shield-x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2 Chart.js Charts -->
+    <div class="row g-4 mb-4">
+        <!-- Chart 1: Prediction Activity Timeline -->
+        <div class="col-lg-6">
+            <div class="agri-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h2 class="h5 fw-bold mb-1">Prediction Activity Timeline</h2>
+                        <span class="text-muted small">Daily volume of ML inference queries</span>
+                    </div>
+                    <span class="badge bg-light text-dark border">Real-time</span>
+                </div>
+                <div style="height: 280px; position: relative;">
+                    <canvas id="predictionsTimelineChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart 2: Average Yield by Crop Type -->
+        <div class="col-lg-6">
+            <div class="agri-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h2 class="h5 fw-bold mb-1">Crop Yield Comparison</h2>
+                        <span class="text-muted small">Yield estimation profiles (kg / hectare)</span>
+                    </div>
+                    <span class="badge bg-light text-success border border-success">RF Regressor</span>
+                </div>
+                <div style="height: 280px; position: relative;">
+                    <canvas id="yieldByCropChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weather Trend & Forecast Section -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-12">
+            <div class="agri-card p-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <div>
+                        <h2 class="h5 fw-bold mb-1">Seasonal Rainfall Trend &amp; Moving Average Forecast</h2>
+                        <span class="text-muted small">Time-series moving average smoothing with linear trend projection for next-month irrigation planning</span>
+                    </div>
+                    <div>
+                        <span id="weather-trend-badge" class="badge bg-primary">Analyzing...</span>
+                    </div>
+                </div>
+                <div style="height: 220px; position: relative;">
+                    <canvas id="weatherForecastChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Inference History Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="agri-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h2 class="h5 fw-bold mb-1">Recent Prediction Telemetry</h2>
+                        <span class="text-muted small">Latest user inputs and model evaluation outputs stored in SQLite</span>
+                    </div>
+                    <a href="{{ url_for('api.get_history') }}" target="_blank" class="btn btn-outline-secondary btn-sm" id="view-raw-history-btn">
+                        <i class="bi bi-filetype-json me-1"></i> View Raw JSON
+                    </a>
+                </div>
+
+                {% if recent_logs %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="recent-predictions-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width: 80px;">ID</th>
+                                <th scope="col">Timestamp</th>
+                                <th scope="col">Model Type</th>
+                                <th scope="col">Primary Inputs</th>
+                                <th scope="col">Inference Result</th>
+                                <th scope="col">Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_logs %}
+                            <tr>
+                                <td class="text-muted fw-bold">#{{ log.id }}</td>
+                                <td class="small">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    {% if log.prediction_type == 'yield' %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle">Yield</span>
+                                    {% elif log.prediction_type == 'disease' %}
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Disease</span>
+                                    {% else %}
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Fertilizer</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small text-truncate" style="max-width: 250px;">
+                                    {% set inp = log.get_inputs() %}
+                                    <strong>{{ inp.get('crop_type', 'N/A')|capitalize }}</strong> |
+                                    {% if log.prediction_type == 'yield' %}
+                                        pH: {{ inp.get('soil_ph') }}, Rain: {{ inp.get('rainfall_mm') }}mm, N: {{ inp.get('nitrogen') }}
+                                    {% elif log.prediction_type == 'disease' %}
+                                        Temp: {{ inp.get('temperature_c') }}°C, Hum: {{ inp.get('humidity_pct') }}%
+                                    {% else %}
+                                        pH: {{ inp.get('soil_ph') }}, N-P-K: {{ inp.get('nitrogen') }}-{{ inp.get('phosphorus') }}-{{ inp.get('potassium') }}
+                                    {% endif %}
+                                </td>
+                                <td class="fw-semibold">
+                                    {% if log.prediction_type == 'disease' %}
+                                        {% if log.result|lower == 'high' %}
+                                            <span class="text-danger"><i class="bi bi-exclamation-octagon-fill me-1"></i>{{ log.result }} Risk</span>
+                                        {% elif log.result|lower == 'medium' %}
+                                            <span class="text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>{{ log.result }} Risk</span>
+                                        {% else %}
+                                            <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>{{ log.result }} Risk</span>
+                                        {% endif %}
+                                    {% else %}
+                                        {{ log.result }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.confidence %}
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress flex-grow-1" style="height: 6px; width: 60px;">
+                                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ log.confidence }}%;"></div>
+                                        </div>
+                                        <span class="small fw-semibold">{{ log.confidence }}%</span>
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted small">N/A</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-clipboard-data fs-1 d-block mb-2"></i>
+                    <p class="mb-2">No predictions logged yet.</p>
+                    <a href="{{ url_for('predict.predict_yield_view') }}" class="btn btn-sm btn-agri-primary">Run First Prediction</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
